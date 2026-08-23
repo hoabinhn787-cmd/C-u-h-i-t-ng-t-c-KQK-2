@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AMPLIFIER LAB – GIẢI CỨU TÍN HIỆU</title>
+    <style>
+        :root {
+            --bg-dark: #12121e;
+            --bg-panel: #1e1e2f;
+            --primary: #00ffcc;
+            --danger: #ff4444;
+            --warning: #ffaa00;
+            --text-main: #e0e0e0;
+            --btn-bg: #2a2a40;
+            --btn-hover: #3f3f5a;
+        }
+
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { margin: 0; background-color: var(--bg-dark); color: var(--text-main); overflow-x: hidden; }
+
+        /* Header & HUD */
+        header { background: #0a0a10; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--primary); }
+        .hud-group { display: flex; gap: 20px; align-items: center; }
+        .hearts { color: var(--danger); font-size: 1.2rem; }
+        .xp { color: var(--warning); font-weight: bold; }
+        .progress-bar-container { width: 150px; height: 10px; background: #333; border-radius: 5px; overflow: hidden; }
+        .progress-bar { height: 100%; background: var(--primary); width: 0%; transition: width 0.3s; }
+        .btn-teacher { background: none; border: 1px solid var(--text-main); color: var(--text-main); cursor: pointer; padding: 5px 10px; border-radius: 5px; }
+
+        /* Layout */
+        .container { max-width: 1000px; margin: 20px auto; padding: 0 15px; }
+        .screen { display: none; animation: fadeIn 0.5s; }
+        .screen.active { display: block; }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Panels & Cards */
+        .panel { background: var(--bg-panel); border-radius: 10px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid #333; }
+        h1, h2, h3 { color: var(--primary); margin-top: 0; }
+        
+        /* Buttons */
+        button { background: var(--btn-bg); color: #fff; border: 1px solid var(--primary); padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 1rem; transition: 0.2s; }
+        button:hover { background: var(--primary); color: #000; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; border-color: #555; }
+        button.btn-danger { border-color: var(--danger); }
+        button.btn-danger:hover { background: var(--danger); color: #fff; }
+
+        /* Oscilloscope */
+        .oscilloscope { background: #001100; border: 3px solid #333; border-radius: 10px; position: relative; padding: 10px; margin: 15px 0; }
+        .oscilloscope::before { content: ''; position: absolute; top:0; left:0; right:0; bottom:0; background: linear-gradient(rgba(0,255,0,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(0,255,0,0.1) 1px, transparent 1px); background-size: 20px 20px; pointer-events: none; }
+        canvas { width: 100%; height: 150px; display: block; }
+        .scope-labels { display: flex; justify-content: space-between; color: var(--primary); font-size: 0.8rem; margin-top: 5px; }
+
+        /* Inputs */
+        input[type="number"], input[type="text"], select { background: #111; color: var(--primary); border: 1px solid #555; padding: 8px; border-radius: 5px; width: 100px; text-align: center; font-size: 1rem; }
+        .input-group { margin: 10px 0; display: flex; align-items: center; gap: 10px; }
+
+        /* Modals (Feedback) */
+        .modal-overlay { position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 100; }
+        .modal { background: var(--bg-panel); padding: 20px; border-radius: 10px; max-width: 500px; width: 90%; border: 2px solid var(--primary); text-align: center; }
+        .modal.wrong { border-color: var(--danger); }
+        .modal h2.correct-text { color: var(--primary); }
+        .modal h2.wrong-text { color: var(--danger); }
+
+        /* Drag & Drop area for Biasing */
+        .terminals { display: flex; justify-content: space-around; margin: 20px 0; }
+        .terminal { width: 80px; height: 80px; border: 2px dashed #555; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; }
+        .terminal.active { border-color: var(--warning); background: rgba(255,170,0,0.2); }
+        .voltages { display: flex; justify-content: center; gap: 15px; margin-bottom: 20px; }
+        .voltage-chip { background: #333; padding: 10px 15px; border-radius: 20px; cursor: pointer; border: 1px solid #666; }
+        .voltage-chip.selected { border-color: var(--primary); background: rgba(0,255,204,0.2); }
+        
+        .map-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; }
+        .map-node { background: #222; padding: 20px; border-radius: 8px; text-align: center; border: 1px solid #444; opacity: 0.6; cursor: not-allowed; }
+        .map-node.unlocked { opacity: 1; border-color: var(--primary); cursor: pointer; }
+        .map-node.unlocked:hover { background: #2a2a35; }
+        .map-node.completed { border-color: var(--warning); background: rgba(255,170,0,0.1); }
+
+        /* Utilities */
+        .flex-center { display: flex; justify-content: center; align-items: center; gap: 10px; }
+        .mt-20 { margin-top: 20px; }
+        .text-center { text-align: center; }
+        .shake { animation: shake 0.5s; }
+        @keyframes shake { 0% {transform: translateX(0);} 25% {transform: translateX(-5px);} 50% {transform: translateX(5px);} 75% {transform: translateX(-5px);} 100% {transform: translateX(0);} }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div><strong>AMPLIFIER LAB</strong> 🔬</div>
+        <div class="hud-group">
+            <div class="progress-bar-container" title="Tiến độ">
+                <div class="progress-bar" id="ui-progress"></div>
+            </div>
+            <div class="xp">XP: <span id="ui-xp">0</span></div>
+            <div class="hearts" id="ui-hearts">❤️❤️❤️</div>
+            <button class="btn-teacher" onclick="toggleTeacherMode()">⚙ GV</button>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- SCREEN 0: BẢN ĐỒ -->
+        <div id="screen-map" class="screen active">
+            <div class="panel text-center">
+                <h1>BẢNG ĐIỀU KHIỂN HỆ THỐNG</h1>
+                <p>Hệ thống khuếch đại đang bị lỗi. Bạn cần vượt qua 5 trạm để sửa chữa.</p>
+                <div class="map-grid mt-20" id="map-container">
+                    <!-- Sinh tự động bằng JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- TRẠM 1: TÍN HIỆU YẾU -->
+        <div id="screen-station-1" class="screen">
+            <div class="panel">
+                <h2>Trạm 1: Kích hoạt bộ khuếch đại</h2>
+                <p>Quan sát dạng sóng. Nhiệm vụ của mạch khuếch đại là biến tín hiệu yếu thành tín hiệu mạnh hơn.</p>
+                <div class="oscilloscope">
+                    <canvas id="canvas-s1"></canvas>
+                    <div class="scope-labels">
+                        <span>Vin (Đỏ)</span>
+                        <span>Vout (Xanh)</span>
+                    </div>
+                </div>
+                <div class="flex-center mt-20">
+                    <button onclick="s1_toggleAmp()" id="btn-s1-amp">BẬT KHUẾCH ĐẠI</button>
+                </div>
+                <div id="s1-question" style="display:none;" class="mt-20">
+                    <p><strong>Câu hỏi:</strong> Khi bật mạch, biên độ tín hiệu Vout thay đổi thế nào so với Vin?</p>
+                    <button onclick="checkAnswer('s1', true, 'Chính xác! Tín hiệu nhỏ vào mạch -> thu được tín hiệu ngõ ra có biên độ lớn hơn.')">Lớn hơn nhiều lần</button>
+                    <button onclick="checkAnswer('s1', false, 'Sai rồi. Nếu nhỏ hơn thì gọi là mạch suy giảm, không phải khuếch đại.')">Nhỏ hơn</button>
+                    <button onclick="checkAnswer('s1', false, 'Sai. Nếu bằng nhau thì đó là mạch đệm (Av=1), mục tiêu chính ở đây là khuếch đại biên độ.')">Bằng nhau</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- TRẠM 2: GAIN HUNTER -->
+        <div id="screen-station-2" class="screen">
+            <div class="panel">
+                <h2>Trạm 2: Gain Hunter (Săn hệ số)</h2>
+                <p>Sử dụng đúng công thức theo giáo trình: <br>
+                <code>Av = Vout / Vin</code> | <code>Ai = Iout / Iin</code> | <code>Ap = Pout / Pin</code> | <code>Ap = Ai × Av</code></p>
+                
+                <div class="panel" style="background:#111;">
+                    <h3 id="s2-q-text">Đang tải câu hỏi...</h3>
+                    <div class="input-group flex-center">
+                        <input type="number" id="s2-answer" placeholder="Nhập số">
+                        <button onclick="s2_check()">KIỂM TRA</button>
+                    </div>
+                    <button id="s2-hint-btn" class="btn-teacher mt-20" style="display:none;" onclick="s2_showHint()">💡 Gợi ý</button>
+                </div>
+                <p>Tiến độ trạm: <span id="s2-progress">0/4</span></p>
+            </div>
+        </div>
+
+        <!-- TRẠM 3: ĐƯỜNG ĐUA A-B-AB-C -->
+        <div id="screen-station-3" class="screen">
+            <div class="panel">
+                <h2>Trạm 3: Phân tích chế độ Transistor</h2>
+                <p>Kéo thanh phân cực (Điểm Q) để thay đổi chế độ hoạt động. Quan sát sự thay đổi dạng sóng.</p>
+                
+                <div class="input-group flex-center">
+                    <label>Điểm làm việc tĩnh Q (VBE):</label>
+                    <input type="range" id="s3-q-slider" min="0" max="100" value="70" oninput="s3_updateScope()">
+                    <span id="s3-q-val" style="color:var(--warning)">Chế độ A</span>
+                </div>
+
+                <div class="oscilloscope">
+                    <canvas id="canvas-s3"></canvas>
+                </div>
+
+                <div class="flex-center mt-20">
+                    <button onclick="s3_compareB_AB()" id="btn-compare-b-ab">So sánh Méo giao điểm (B ↔ AB)</button>
+                    <button class="btn-teacher" onclick="checkAnswer('s3_out', true, 'Chính xác! Giáo trình nêu rõ: Ứng dụng chế độ C là mạch tách tín hiệu (VD: tách xung đồng bộ trong TV).')">Ứng dụng chế độ C?</button>
+                </div>
+
+                <div id="s3-quiz" class="panel mt-20" style="background:#111;">
+                    <p><strong>Câu hỏi:</strong> Khi điểm Q tại VBE=0, IC=0, khi không có tín hiệu transistor không dẫn, và tín hiệu ra bị mất một phần tại giao điểm. Đây là chế độ gì?</p>
+                    <div class="flex-center">
+                        <button onclick="checkAnswer('s3', false, 'Sai. Chế độ A khuếch đại cả 2 bán chu kỳ, VBE = 0.6-0.7V (Si).')">Chế độ A</button>
+                        <button onclick="checkAnswer('s3', true, 'Chính xác! Chế độ B khuếch đại 1 bán chu kỳ và gây méo giao điểm.')">Chế độ B</button>
+                        <button onclick="checkAnswer('s3', false, 'Sai. Chế độ AB có dòng nhỏ khi tĩnh để khắc phục méo giao điểm.')">Chế độ AB</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TRẠM 4: ĐẤU NGUỒN CHO TRANSISTOR -->
+        <div id="screen-station-4" class="screen">
+            <div class="panel">
+                <h2>Trạm 4: Đấu Nguồn Transistor</h2>
+                <p>Theo nguyên tắc cấp nguồn một chiều: 
+                    <br><span style="color:#ff8888">NPN: VE < VB < VC</span> 
+                    <br><span style="color:#8888ff">PNP: VE > VB > VC</span>
+                </p>
+                <div class="panel" style="background:#111; text-align:center;" id="s4-workspace">
+                    <h3 id="s4-trans-type">Transistor hiện tại: <span>NPN</span></h3>
+                    
+                    <div class="voltages" id="s4-voltages">
+                        <div class="voltage-chip" onclick="s4_selectVolt(0)">0V (GND)</div>
+                        <div class="voltage-chip" onclick="s4_selectVolt(5)">5V</div>
+                        <div class="voltage-chip" onclick="s4_selectVolt(12)">12V</div>
+                    </div>
+
+                    <p style="color:#888; font-size:0.9rem;">Chọn 1 mức áp ở trên, sau đó click vào chân cực bên dưới để đấu dây.</p>
+                    <div class="terminals">
+                        <div class="terminal" onclick="s4_assignVolt('E')" id="term-E">E<br><span>?</span></div>
+                        <div class="terminal" onclick="s4_assignVolt('B')" id="term-B">B<br><span>?</span></div>
+                        <div class="terminal" onclick="s4_assignVolt('C')" id="term-C">C<br><span>?</span></div>
+                    </div>
+
+                    <div class="mt-20">
+                        <p><strong>Theo giáo trình:</strong> Phân cực VBE cho transistor Silicon (Si) ở giá trị thông thường là bao nhiêu?</p>
+                        <select id="s4-vbe-select">
+                            <option value="">-- Chọn VBE --</option>
+                            <option value="0.2">Khoảng 0.2 - 0.3 V</option>
+                            <option value="0.6">Khoảng 0.6 - 0.7 V</option>
+                            <option value="1.2">Khoảng 1.2 V</option>
+                        </select>
+                    </div>
+
+                    <button class="mt-20" onclick="s4_check()">CẤP NGUỒN</button>
+                    <button id="s4-hint-btn" class="btn-teacher mt-20" style="display:none;" onclick="s4_showHint()">💡 Gợi ý</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- TRẠM 5: BOSS CUỐI -->
+        <div id="screen-station-5" class="screen">
+            <div class="panel">
+                <h2>Trạm 5: Sửa chữa hệ thống toàn diện</h2>
+                <p>Bộ khuếch đại loa trung tâm không phát tiếng. Hãy kiểm tra tuần tự:</p>
+                
+                <div id="s5-q1" class="panel" style="background:#111;">
+                    <p>1. Đo thấy Vin = 10mV, Vout = 500mV. Tính hệ số khuếch đại điện áp Av?</p>
+                    <input type="number" id="s5-i1"> <button onclick="s5_check1()">Kiểm tra</button>
+                </div>
+
+                <div id="s5-q2" class="panel" style="background:#111; display:none;">
+                    <p>2. Mạch dùng transistor NPN. Đo thấy VE = 0V, VB = 0V, VC = 12V. Mạch có khuếch đại được không?</p>
+                    <button onclick="checkAnswer('s5_2', false, 'Sai. VB = 0V và VE = 0V nghĩa là VBE = 0. Transistor đang ngưng dẫn.')">Có</button>
+                    <button onclick="checkAnswer('s5_2', true, 'Chính xác! Vì VBE = 0V, transistor nằm ở vùng ngưng dẫn (chế độ B tĩnh), không thể khuếch đại tín hiệu nhỏ chế độ A.')">Không</button>
+                </div>
+
+                <div id="s5-q3" class="panel" style="background:#111; display:none;">
+                    <p>3. Yêu cầu công suất ra cao, hiệu suất tốt mà ít bị méo giao điểm. Bạn nên thiết lập phân cực ở chế độ nào?</p>
+                    <button onclick="checkAnswer('s5_3', false, 'Sai. Chế độ A hiệu suất thấp.')">Chế độ A</button>
+                    <button onclick="checkAnswer('s5_3', false, 'Sai. Chế độ B bị méo giao điểm trầm trọng.')">Chế độ B</button>
+                    <button onclick="checkAnswer('s5_3', true, 'Hoàn hảo! Chế độ AB dùng luân phiên NPN/PNP, có dòng IB nhỏ ở chế độ tĩnh để xóa méo giao điểm. HỆ THỐNG ĐÃ SỬA XONG!')">Chế độ AB</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- MODAL FEEDBACK -->
+    <div class="modal-overlay" id="feedback-modal">
+        <div class="modal" id="feedback-content">
+            <h2 id="fb-title">Tiêu đề</h2>
+            <p id="fb-msg">Nội dung giải thích</p>
+            <button onclick="closeFeedback()">Tiếp tục</button>
+        </div>
+    </div>
+
+    <!-- MODAL TEACHER -->
+    <div class="modal-overlay" id="teacher-modal">
+        <div class="modal">
+            <h2>⚙ Cài đặt Giáo viên</h2>
+            <p>Ứng dụng tuân thủ 100% giáo trình Điện tử tương tự.</p>
+            <div style="text-align:left; margin-bottom:15px;">
+                <label><input type="checkbox" id="t-immortal"> Không bao giờ hết tim (Luyện tập)</label><br>
+                <label><input type="checkbox" id="t-easy"> Mức độ: Cơ bản (Gợi ý hiện ngay khi sai 1 lần)</label>
+            </div>
+            <button onclick="testOutsideCurriculum()">Hỏi kiến thức ngoài giáo trình</button>
+            <button onclick="resetGame()" class="btn-danger mt-20">Reset Toàn bộ</button>
+            <button onclick="document.getElementById('teacher-modal').style.display='none'">Đóng</button>
+        </div>
+    </div>
+
+    <!-- SCRIPT LOGIC -->
+    <script>
+        /* === GAME STATE === */
+        const State = {
+            hearts: 3,
+            xp: 0,
+            currentStation: 1,
+            unlockedStations: [1],
+            isPracticeMode: false,
+            
+            // S2 Data
+            s2_questions: [],
+            s2_currentQ: 0,
+            s2_errors: 0,
+
+            // S4 Data
+            s4_selectedVolt: null,
+            s4_terminals: { E: null, B: null, C: null },
+            s4_type: 'NPN',
+            s4_errors: 0
+        };
+
+        const config = {
+            easyMode: false
+        };
+
+        /* === CORE FUNCTIONS === */
+        function init() {
+            renderMap();
+            updateHUD();
+            initS1Canvas();
+            initS3Canvas();
+            generateS2Questions();
+        }
+
+        function updateHUD() {
+            document.getElementById('ui-hearts').innerText = '❤️'.repeat(State.hearts) + '🖤'.repeat(3 - State.hearts);
+            document.getElementById('ui-xp').innerText = State.xp;
+            let progress = (State.currentStation - 1) * 25;
+            if(State.currentStation === 5 && document.getElementById('s5-q3').style.display === 'block') progress = 100;
+            document.getElementById('ui-progress').style.width = progress + '%';
+        }
+
+        function takeDamage() {
+            if(document.getElementById('t-immortal').checked) return;
+            State.hearts--;
+            if(State.hearts <= 0) {
+                State.isPracticeMode = true;
+                State.hearts = 0;
+                showModal('Hết tim!', 'Em đã hết tim. Hệ thống chuyển sang chế độ Luyện tập. Hãy xem các gợi ý và thử lại nhé!', false);
+            }
+            updateHUD();
+        }
+
+        function addXP(amount) {
+            State.xp += amount;
+            updateHUD();
+        }
+
+        function unlockStation(n) {
+            if(!State.unlockedStations.includes(n)) {
+                State.unlockedStations.push(n);
+                State.currentStation = n;
+            }
+            renderMap();
+        }
+
+        function navigateTo(n) {
+            if(!State.unlockedStations.includes(n)) return;
+            document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+            document.getElementById('screen-station-' + n).classList.add('active');
+            State.currentStation = n;
+            updateHUD();
+        }
+
+        function goHome() {
+            document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+            document.getElementById('screen-map').classList.add('active');
+        }
+
+        function renderMap() {
+            const container = document.getElementById('map-container');
+            container.innerHTML = '';
+            const titles = ['Trạm 1: Kích hoạt', 'Trạm 2: Săn hệ số', 'Trạm 3: Chế độ A-B-C', 'Trạm 4: Đấu Nguồn', 'Boss: Sửa chữa'];
+            
+            for(let i=1; i<=5; i++) {
+                let statusClass = State.unlockedStations.includes(i) ? 'unlocked' : '';
+                if(State.unlockedStations.includes(i+1) || (i===5 && State.xp > 300)) statusClass += ' completed';
+                
+                container.innerHTML += `
+                    <div class="map-node ${statusClass}" onclick="navigateTo(${i})">
+                        <h3>Trạm ${i}</h3>
+                        <p>${titles[i-1]}</p>
+                        ${statusClass.includes('completed') ? '✅ Đã qua' : (statusClass.includes('unlocked') ? '🔓 Mở khóa' : '🔒 Khóa')}
+                    </div>
+                `;
+            }
+        }
+
+        /* === MODAL FEEDBACK === */
+        function showModal(title, msg, isCorrect, callback = null) {
+            const modal = document.getElementById('feedback-modal');
+            const content = document.getElementById('feedback-content');
+            const h2 = document.getElementById('fb-title');
+            
+            h2.innerText = title;
+            h2.className = isCorrect ? 'correct-text' : 'wrong-text';
+            content.className = 'modal ' + (isCorrect ? '' : 'wrong');
+            document.getElementById('fb-msg').innerHTML = msg;
+            
+            modal.style.display = 'flex';
+            modal.dataset.cb = callback ? callback.name : '';
+        }
+
+        function closeFeedback() {
+            document.getElementById('feedback-modal').style.display = 'none';
+        }
+
+        function checkAnswer(id, isCorrect, explanation) {
+            if(isCorrect) {
+                addXP(20);
+                showModal('Chính xác!', explanation, true);
+                // Progression logic
+                if(id === 's1') {
+                    document.getElementById('s1-question').style.display = 'none';
+                    unlockStation(2);
+                    setTimeout(() => goHome(), 1500);
+                }
+                if(id === 's3') {
+                    unlockStation(4);
+                    setTimeout(() => goHome(), 1500);
+                }
+                if(id === 's5_2') {
+                    document.getElementById('s5-q2').style.display = 'none';
+                    document.getElementById('s5-q3').style.display = 'block';
+                }
+                if(id === 's5_3') {
+                    showModal('HOÀN THÀNH!', 'Chúc mừng! Em đã nắm vững khái niệm, tính toán Av, hiểu điểm Q các chế độ và quy tắc phân cực. BÁO CÁO NĂNG LỰC: 100/100.', true);
+                    updateHUD();
+                }
+            } else {
+                takeDamage();
+                showModal('Chưa đúng', explanation, false);
+            }
+        }
+
+        /* === CANVAS DRAWING === */
+        let s1_time = 0, s3_time = 0;
+        let s1_isAmpOn = false;
+        let s3_mode = 'A'; // A, B, C, AB
+        let s3_showCompare = false;
+
+        function initS1Canvas() {
+            const canvas = document.getElementById('canvas-s1');
+            const ctx = canvas.getContext('2d');
+            
+            function draw() {
+                canvas.width = canvas.parentElement.clientWidth;
+                canvas.height = 150;
+                ctx.clearRect(0,0, canvas.width, canvas.height);
+                
+                // Draw Grid
+                ctx.strokeStyle = 'rgba(0,255,0,0.2)';
+                ctx.beginPath(); ctx.moveTo(0, 75); ctx.lineTo(canvas.width, 75); ctx.stroke();
+
+                // Draw Vin (Red)
+                ctx.beginPath();
+                ctx.strokeStyle = '#ff4444';
+                ctx.lineWidth = 2;
+                for(let x=0; x<canvas.width; x++) {
+                    let y = Math.sin(x*0.05 + s1_time) * 20;
+                    ctx.lineTo(x, 75 - y);
+                }
+                ctx.stroke();
+
+                // Draw Vout (Green)
+                if(s1_isAmpOn) {
+                    ctx.beginPath();
+                    ctx.strokeStyle = '#00ffcc';
+                    for(let x=0; x<canvas.width; x++) {
+                        // Đảo pha 180 độ (EC) và biên độ lớn hơn
+                        let y = Math.sin(x*0.05 + s1_time + Math.PI) * 60;
+                        ctx.lineTo(x, 75 - y);
+                    }
+                    ctx.stroke();
+                }
+
+                s1_time += 0.1;
+                requestAnimationFrame(draw);
+            }
+            draw();
+        }
+
+        function s1_toggleAmp() {
+            s1_isAmpOn = true;
+            document.getElementById('btn-s1-amp').disabled = true;
+            document.getElementById('btn-s1-amp').innerText = "ĐÃ BẬT";
+            setTimeout(() => {
+                document.getElementById('s1-question').style.display = 'block';
+            }, 1000);
+        }
+
+        function initS3Canvas() {
+            const canvas = document.getElementById('canvas-s3');
+            const ctx = canvas.getContext('2d');
+            
+            function draw() {
+                canvas.width = canvas.parentElement.clientWidth;
+                canvas.height = 150;
+                ctx.clearRect(0,0, canvas.width, canvas.height);
+                
+                ctx.strokeStyle = 'rgba(0,255,0,0.2)';
+                ctx.beginPath(); ctx.moveTo(0, 75); ctx.lineTo(canvas.width, 75); ctx.stroke();
+
+                ctx.beginPath();
+                ctx.strokeStyle = '#00ffcc';
+                ctx.lineWidth = 2;
+
+                for(let x=0; x<canvas.width; x++) {
+                    let rawY = Math.sin(x*0.05 + s3_time) * 60;
+                    let y = rawY;
+
+                    if(s3_showCompare) {
+                        // So sánh B và AB: Nửa trái là B (méo), nửa phải là AB (mượt)
+                        if(x < canvas.width/2) {
+                            if(rawY > -10 && rawY < 10) y = 0; // Méo giao điểm rõ rệt
+                        } else {
+                            y = rawY; // AB mượt
+                        }
+                    } else {
+                        if(s3_mode === 'A') {
+                            y = rawY; // Đủ 2 bán kỳ
+                        } else if (s3_mode === 'B') {
+                            if(rawY < 0) y = 0; // Mất 1 bán kỳ, IC=0 khi Vin < 0
+                            else if(rawY < 15) y = 0; // Méo giao điểm
+                        } else if (s3_mode === 'AB') {
+                            y = rawY; // Tương đối mượt
+                        } else if (s3_mode === 'C') {
+                            if(rawY < 40) y = 0; // Chỉ lấy đỉnh
+                        }
+                    }
+                    
+                    if(x===0) ctx.moveTo(x, 75 - y);
+                    else ctx.lineTo(x, 75 - y);
+                }
+                ctx.stroke();
+
+                if(s3_showCompare) {
+                    ctx.fillStyle = '#fff';
+                    ctx.fillText("Chế độ B (Méo giao điểm)", 10, 20);
+                    ctx.fillText("Chế độ AB (Khắc phục méo)", canvas.width/2 + 10, 20);
+                    ctx.beginPath(); ctx.moveTo(canvas.width/2, 0); ctx.lineTo(canvas.width/2, 150); ctx.stroke();
+                }
+
+                s3_time += 0.1;
+                requestAnimationFrame(draw);
+            }
+            draw();
+        }
+
+        function s3_updateScope() {
+            let val = document.getElementById('s3-q-slider').value;
+            let label = document.getElementById('s3-q-val');
+            s3_showCompare = false;
+
+            if(val > 60) { s3_mode = 'A'; label.innerText = 'Chế độ A (Giữa đường tải)'; }
+            else if(val > 40) { s3_mode = 'AB'; label.innerText = 'Chế độ AB (Gần ngưỡng ngưng)'; }
+            else if(val > 20) { s3_mode = 'B'; label.innerText = 'Chế độ B (Tại ngưỡng ngưng)'; }
+            else { s3_mode = 'C'; label.innerText = 'Chế độ C (Sâu vùng ngưng)'; }
+        }
+
+        function s3_compareB_AB() {
+            s3_showCompare = true;
+        }
+
+
+        /* === TRẠM 2: GAIN HUNTER === */
+        function generateS2Questions() {
+            // Theo giáo trình: Av = Vout/Vin, Ai = Iout/Iin, Ap = Pout/Pin, Ap = Ai*Av
+            State.s2_questions = [
+                { q: "Đo được Vout = 100mV, Vin = 2mV. Hệ số khuếch đại điện áp Av bằng bao nhiêu lần?", a: 50, hint: "Av = Vout / Vin. Tính: 100 chia 2." },
+                { q: "Mạch có Iin = 5μA, Iout = 200μA. Tính hệ số khuếch đại dòng điện Ai?", a: 40, hint: "Ai = Iout / Iin. Tính: 200 chia 5." },
+                { q: "Nếu Av = 50 và Ai = 40. Theo công thức Ap = Ai × Av, hệ số khuếch đại công suất Ap là?", a: 2000, hint: "Ap = 50 × 40." },
+                { q: "Đo được công suất vào Pin = 2mW, công suất ra Pout = 400mW. Tính Ap?", a: 200, hint: "Ap = Pout / Pin. Tính 400 chia 2." }
+            ];
+            loadS2Question();
+        }
+
+        function loadS2Question() {
+            if(State.s2_currentQ >= State.s2_questions.length) {
+                showModal('Hoàn thành Trạm 2', 'Tuyệt vời! Em đã tính toán chuẩn xác các hệ số khuếch đại theo giáo trình.', true);
+                unlockStation(3);
+                setTimeout(() => goHome(), 2000);
+                return;
+            }
+            document.getElementById('s2-q-text').innerText = State.s2_questions[State.s2_currentQ].q;
+            document.getElementById('s2-answer').value = '';
+            document.getElementById('s2-progress').innerText = `${State.s2_currentQ}/${State.s2_questions.length}`;
+            State.s2_errors = 0;
+            document.getElementById('s2-hint-btn').style.display = 'none';
+        }
+
+        function s2_check() {
+            let ans = parseFloat(document.getElementById('s2-answer').value);
+            let correct = State.s2_questions[State.s2_currentQ].a;
+            
+            if(ans === correct) {
+                addXP(20);
+                showModal('Đúng rồi!', 'Giải thích: ' + State.s2_questions[State.s2_currentQ].hint, true);
+                State.s2_currentQ++;
+                setTimeout(loadS2Question, 1500);
+            } else {
+                State.s2_errors++;
+                takeDamage();
+                let msg = "Chưa chính xác. Em hãy kiểm tra xem mình đã lấy (Giá trị Đầu Ra) chia cho (Giá trị Đầu Vào) chưa.";
+                if(State.s2_questions[State.s2_currentQ].q.includes('Ap = Ai')) msg = "Chưa đúng. Em hãy nhân hai giá trị Ai và Av với nhau.";
+                
+                showModal('Sai', msg, false);
+                
+                if(State.s2_errors >= 2 || config.easyMode) {
+                    document.getElementById('s2-hint-btn').style.display = 'block';
+                }
+            }
+        }
+
+        function s2_showHint() {
+            showModal('Gợi ý', State.s2_questions[State.s2_currentQ].hint, true);
+        }
+
+        /* === TRẠM 4: ĐẤU NGUỒN === */
+        function s4_selectVolt(v) {
+            State.s4_selectedVolt = v;
+            document.querySelectorAll('.voltage-chip').forEach(el => el.classList.remove('selected'));
+            event.target.classList.add('selected');
+        }
+
+        function s4_assignVolt(term) {
+            if(State.s4_selectedVolt === null) return;
+            State.s4_terminals[term] = State.s4_selectedVolt;
+            let el = document.getElementById('term-'+term);
+            el.classList.add('active');
+            el.querySelector('span').innerText = State.s4_selectedVolt + 'V';
+        }
+
+        function s4_check() {
+            let E = State.s4_terminals.E;
+            let B = State.s4_terminals.B;
+            let C = State.s4_terminals.C;
+            let vbeSelect = document.getElementById('s4-vbe-select').value;
+
+            if(E===null || B===null || C===null || vbeSelect==="") {
+                showModal('Lỗi', 'Vui lòng đấu đủ 3 chân cực và chọn giá trị VBE.', false);
+                return;
+            }
+
+            // Check NPN logic: VE < VB < VC
+            let logicOk = false;
+            if(State.s4_type === 'NPN' && E < B && B < C) logicOk = true;
+
+            // Check VBE for Si
+            let vbeOk = (vbeSelect === "0.6");
+
+            if(logicOk && vbeOk) {
+                addXP(30);
+                document.getElementById('s4-workspace').style.backgroundColor = '#003311';
+                showModal('Mạch đã hoạt động!', 'Rất tốt! Đối với NPN: VE < VB < VC. Và Transistor Silicon (Si) có VBE thông thường khoảng 0.6 - 0.7V.', true);
+                unlockStation(5);
+                setTimeout(() => goHome(), 2500);
+            } else {
+                State.s4_errors++;
+                takeDamage();
+                let msg = "";
+                if(!logicOk) msg += "Phân cực chưa đúng - hãy kiểm tra lại thứ tự điện thế tại E, B và C theo yêu cầu NPN. ";
+                if(!vbeOk) msg += "<br>Giá trị VBE chọn chưa đúng với vật liệu Silicon (Si) theo giáo trình.";
+                
+                document.getElementById('s4-workspace').classList.add('shake');
+                setTimeout(()=>document.getElementById('s4-workspace').classList.remove('shake'), 500);
+                showModal('Chưa chính xác', msg, false);
+
+                if(State.s4_errors >= 2 || config.easyMode) {
+                    document.getElementById('s4-hint-btn').style.display = 'block';
+                }
+            }
+        }
+
+        function s4_showHint() {
+            showModal('Gợi ý Trạm 4', 'Đối với NPN: Chọn E = 0V, B = 5V, C = 12V. Transistor Silicon có VBE ~ 0.6V.', true);
+        }
+
+        /* === TRẠM 5: BOSS === */
+        function s5_check1() {
+            let val = document.getElementById('s5-i1').value;
+            if(val == "50") {
+                addXP(20);
+                showModal('Đúng!', 'Av = 500 / 10 = 50.', true);
+                document.getElementById('s5-q1').style.display = 'none';
+                document.getElementById('s5-q2').style.display = 'block';
+            } else {
+                takeDamage();
+                showModal('Sai', 'Av = Vout / Vin.', false);
+            }
+        }
+
+        /* === TEACHER MODE === */
+        function toggleTeacherMode() {
+            document.getElementById('teacher-modal').style.display = 'flex';
+        }
+        function testOutsideCurriculum() {
+            document.getElementById('teacher-modal').style.display = 'none';
+            showModal('Kiểm tra', 'Giáo viên hỏi: "Mạch khuếch đại Class D có hiệu suất bao nhiêu?"', false, function(){});
+            // Simulate AI strict adherence
+            setTimeout(() => {
+                showModal('Phản hồi từ Hệ thống', '<strong>Nội dung này cần giáo viên xác nhận.</strong> (Giáo trình tải lên chỉ đề cập đến chế độ A, B, AB, C. Không có thông tin về Class D).', true);
+            }, 2000);
+        }
+        function resetGame() {
+            State.hearts = 3; State.xp = 0; State.currentStation = 1; State.unlockedStations = [1];
+            updateHUD(); renderMap();
+            document.getElementById('teacher-modal').style.display = 'none';
+            goHome();
+        }
+
+        // Init App
+        window.onload = init;
+
+    </script>
+</body>
+</html>
